@@ -4,11 +4,15 @@ import (
 	"errors"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
+	"reflect"
 	"strings"
 )
 
 func keySchema(t interface{}) ([]*dynamodb.KeySchemaElement, *dynamodb.ProvisionedThroughput, error) {
-	structType := getStructType(t)
+	return keySchemaForType(getStructType(t))
+}
+
+func keySchemaForType(structType reflect.Type) ([]*dynamodb.KeySchemaElement, *dynamodb.ProvisionedThroughput, error) {
 	keySchema := make([]*dynamodb.KeySchemaElement, 0, 2)
 	var thruput *dynamodb.ProvisionedThroughput
 	for f := 0; f < structType.NumField(); f++ {

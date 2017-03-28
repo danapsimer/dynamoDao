@@ -5,11 +5,11 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
-	"github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
+	"code.bluesoftdev.com/v1/repos/dynamoDao/uuid"
 )
 
 var awsConfig = aws.NewConfig().
@@ -31,18 +31,18 @@ func resetTable(t *testing.T) {
 }
 
 type Struct1 struct {
-	Id          uuid.UUID `dynamodbav:"person_id" dynamoKey:"hash"`
-	OrgId       uuid.UUID `dynamodbav:"organization_id" dynamoGSI:"PhoneNumberIdx,hash"`
-	Name        string    `dynamodbav:"name" dynamoKey:"range"`
-	PhoneNumber string    `dynamodbav:"phone_number" dynamoGSI:"PhoneNumberIdx,range"`
+	Id          *uuid.UUID `dynamodbav:"person_id" dynamoKey:"hash"`
+	OrgId       uuid.UUID  `dynamodbav:"organization_id" dynamoGSI:"PhoneNumberIdx,hash"`
+	Name        string     `dynamodbav:"name"`
+	PhoneNumber string     `dynamodbav:"phone_number" dynamoGSI:"PhoneNumberIdx,range"`
 }
 
 type Struct2 struct {
-	Id          uuid.UUID `dynamodbav:"person_id" dynamoKey:"hash"`
-	OrgId       uuid.UUID `dynamodbav:"organization_id" dynamoGSI:"PhoneNumberIdx,hash"`
-	Name        string    `dynamodbav:"name" dynamoKey:"range" dynamoGSI:"NameDOBIdx,range"`
-	PhoneNumber string    `dynamodbav:"phone_number" dynamoGSI:"PhoneNumberIdx,range"`
-	DateOfBirth time.Time `dynamodbav:"date_of_birth,unixtime" dynamoGSI:"NameDOBIdx,hash,8,4"`
+	Id          *uuid.UUID `dynamodbav:"person_id" dynamoKey:"hash"`
+	OrgId       uuid.UUID  `dynamodbav:"organization_id" dynamoGSI:"PhoneNumberIdx,hash"`
+	Name        string     `dynamodbav:"name" dynamoKey:"range" dynamoGSI:"NameDOBIdx,range"`
+	PhoneNumber string     `dynamodbav:"phone_number" dynamoGSI:"PhoneNumberIdx,range"`
+	DateOfBirth time.Time  `dynamodbav:"date_of_birth,unixtime" dynamoGSI:"NameDOBIdx,hash,8,4"`
 }
 
 type TestDao struct {
@@ -172,7 +172,7 @@ func TestDynamoDBDao_CreateOrUpdateTable(t *testing.T) {
 	dt5, err := client.DescribeTable(&dynamodb.DescribeTableInput{TableName: aws.String("DynamoDao.Test")})
 	require.Nil(t, err)
 	require.NotNil(t, dt5)
-	assert.Nil(t,dt5.Table.StreamSpecification)
+	assert.Nil(t, dt5.Table.StreamSpecification)
 
 	dao.enableStreaming = true
 	dao.streamViewType = dynamodb.StreamViewTypeKeysOnly
@@ -185,4 +185,55 @@ func TestDynamoDBDao_CreateOrUpdateTable(t *testing.T) {
 
 	assert.True(t, *dt6.Table.StreamSpecification.StreamEnabled)
 	assert.Equal(t, dynamodb.StreamViewTypeKeysOnly, *dt6.Table.StreamSpecification.StreamViewType)
+}
+
+func setup(t *testing.T) *TestDao {
+	resetTable(t)
+	session := session.New(awsConfig)
+	client := dynamodb.New(session)
+	dao := &TestDao{
+		DynamoDBDao{
+			client:    client,
+			tableName: "DynamoDao.Test",
+		},
+	}
+
+	p := dao.CreateOrUpdateTable(&Struct1{})
+	err := <-p
+	require.Nil(t, err)
+	return dao
+}
+
+func TestDynamoDBDao_PutItem(t *testing.T) {
+	dao := setup(t)
+
+	id := uuid.NewV4()
+	orgId := uuid.NewV4()
+	saved, err := dao.PutItem(&Struct1{
+		Id:          &id,
+		OrgId:       orgId,
+		Name:        "Joe Blow",
+		PhoneNumber: "4045551212",
+	})
+	require.Nil(t, err)
+	require.NotNil(t, saved)
+
+	savedStruct1, ok := saved.(*Struct1)
+	require.True(t, ok)
+	assert.Equal(t, id, *savedStruct1.Id)
+	assert.Equal(t, orgId, savedStruct1.OrgId)
+	assert.Equal(t, "Joe Blow", savedStruct1.Name)
+	assert.Equal(t, "4045551212", savedStruct1.PhoneNumber)
+
+	retrieved, err := dao.GetItem(&Struct1{
+		Id: savedStruct1.Id,
+	})
+	require.Nil(t, err)
+	require.NotNil(t, retrieved)
+	retrievedStruct1, ok := retrieved.(*Struct1)
+	require.True(t, ok)
+	assert.Equal(t, *savedStruct1.Id, *retrievedStruct1.Id)
+	assert.Equal(t, savedStruct1.OrgId, retrievedStruct1.OrgId)
+	assert.Equal(t, savedStruct1.Name, retrievedStruct1.Name)
+	assert.Equal(t, savedStruct1.PhoneNumber, retrievedStruct1.PhoneNumber)
 }

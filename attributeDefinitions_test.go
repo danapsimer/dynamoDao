@@ -9,7 +9,13 @@ import (
 
 func TestAttributeDefinitions(t *testing.T) {
 	testStruct := &TestStruct{}
-	attrDefs, err := attributeDefinitions(testStruct)
+	attrDefs, err := attributeDefinitions(testStruct,map[string]interface{}{
+		"a": nil,
+		"B": nil,
+		"c": nil,
+		"D": nil,
+		"e": nil,
+	})
 	require.Nil(t, err, "Error occurred in attributeDefinitions")
 	require.NotNil(t, attrDefs)
 	assert.Equal(t, 5, len(attrDefs))

@@ -23,6 +23,7 @@ type TestStruct struct {
 	E []byte        `dynamodbav:"e" dynamoGSI:"Snafu,project" dynamoLSI:"snafu,project"`
 	F TestSubStruct `dynamodbav:"f"`
 	M string        `dynamodbav:"-"`
+	N string				`dynamodbav:"n"`
 }
 
 func TestGlobalSecondaryIndexes(t *testing.T) {

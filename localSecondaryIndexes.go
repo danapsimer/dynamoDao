@@ -4,12 +4,16 @@ import (
 	"errors"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
+	"reflect"
 	"strings"
 )
 
 func localIndexes(t interface{}, baseHashKey *dynamodb.KeySchemaElement) ([]*dynamodb.LocalSecondaryIndex, error) {
+	return localIndexesForType(getStructType(t), baseHashKey)
+}
+
+func localIndexesForType(structType reflect.Type, baseHashKey *dynamodb.KeySchemaElement) ([]*dynamodb.LocalSecondaryIndex, error) {
 	LSIs := make(map[string]*dynamodb.LocalSecondaryIndex)
-	structType := getStructType(t)
 	for f := 0; f < structType.NumField(); f++ {
 		field := structType.Field(f)
 		fieldName := field.Name

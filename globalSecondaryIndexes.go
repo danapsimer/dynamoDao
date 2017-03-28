@@ -4,12 +4,16 @@ import (
 	"errors"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
+	"reflect"
 	"strings"
 )
 
 func globalIndexes(t interface{}) ([]*dynamodb.GlobalSecondaryIndex, error) {
+	return globalIndexesForType(getStructType(t))
+}
+
+func globalIndexesForType(structType reflect.Type) ([]*dynamodb.GlobalSecondaryIndex, error) {
 	GSIs := make(map[string]*dynamodb.GlobalSecondaryIndex)
-	structType := getStructType(t)
 	for f := 0; f < structType.NumField(); f++ {
 		field := structType.Field(f)
 		fieldName := field.Name
@@ -138,4 +142,3 @@ func globalIndexes(t interface{}) ([]*dynamodb.GlobalSecondaryIndex, error) {
 		return gsiArray, nil
 	}
 }
-
