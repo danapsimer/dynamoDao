@@ -1,6 +1,7 @@
 package dynamoDao
 
 import (
+	"code.bluesoftdev.com/v1/repos/dynamoDao/uuid"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -9,7 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
-	"code.bluesoftdev.com/v1/repos/dynamoDao/uuid"
 )
 
 var awsConfig = aws.NewConfig().
@@ -237,3 +237,68 @@ func TestDynamoDBDao_PutItem(t *testing.T) {
 	assert.Equal(t, savedStruct1.Name, retrievedStruct1.Name)
 	assert.Equal(t, savedStruct1.PhoneNumber, retrievedStruct1.PhoneNumber)
 }
+
+func TestDynamoDBDao_UpdateItem(t *testing.T) {
+	dao := setup(t)
+
+	id := uuid.NewV4()
+	orgId := uuid.NewV4()
+	saved, err := dao.PutItem(&Struct1{
+		Id:          &id,
+		OrgId:       orgId,
+		Name:        "Joe Blow",
+		PhoneNumber: "4045551212",
+	})
+	require.Nil(t, err)
+	require.NotNil(t, saved)
+
+	savedStruct1, ok := saved.(*Struct1)
+	require.True(t, ok)
+	assert.Equal(t, id, *savedStruct1.Id)
+	assert.Equal(t, orgId, savedStruct1.OrgId)
+	assert.Equal(t, "Joe Blow", savedStruct1.Name)
+	assert.Equal(t, "4045551212", savedStruct1.PhoneNumber)
+
+	savedStruct1.PhoneNumber = "7705551212"
+
+	updated, err := dao.UpdateItem(savedStruct1)
+	require.Nil(t, err)
+	require.NotNil(t, updated)
+	updatedStruct1, ok := updated.(*Struct1)
+	require.True(t, ok)
+	assert.Equal(t, *savedStruct1.Id, *updatedStruct1.Id)
+	assert.Equal(t, savedStruct1.OrgId, updatedStruct1.OrgId)
+	assert.Equal(t, savedStruct1.Name, updatedStruct1.Name)
+	assert.Equal(t, savedStruct1.PhoneNumber, updatedStruct1.PhoneNumber)
+}
+
+func TestDynamoDBDao_DeleteItem(t *testing.T) {
+	dao := setup(t)
+
+	id := uuid.NewV4()
+	orgId := uuid.NewV4()
+	saved, err := dao.PutItem(&Struct1{
+		Id:          &id,
+		OrgId:       orgId,
+		Name:        "Joe Blow",
+		PhoneNumber: "4045551212",
+	})
+	require.Nil(t, err)
+	require.NotNil(t, saved)
+
+	savedStruct1, ok := saved.(*Struct1)
+	require.True(t, ok)
+
+	key := Struct1{Id: savedStruct1.Id}
+
+	deleted, err := dao.DeleteItem(&key)
+	require.Nil(t, err)
+	require.NotNil(t, deleted)
+	updatedStruct1, ok := deleted.(*Struct1)
+	require.True(t, ok)
+	assert.Equal(t, *savedStruct1.Id, *updatedStruct1.Id)
+	assert.Equal(t, savedStruct1.OrgId, updatedStruct1.OrgId)
+	assert.Equal(t, savedStruct1.Name, updatedStruct1.Name)
+	assert.Equal(t, savedStruct1.PhoneNumber, updatedStruct1.PhoneNumber)
+}
+
