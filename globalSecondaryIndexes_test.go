@@ -8,7 +8,7 @@ import (
 )
 
 type TestSubStruct struct {
-	G string
+	G string `dynamoGSI:"bozo,hash"`
 	H float64
 	I uint
 	K uint32
@@ -23,7 +23,7 @@ type TestStruct struct {
 	E []byte        `dynamodbav:"e" dynamoGSI:"Snafu,project" dynamoLSI:"snafu,project"`
 	F TestSubStruct `dynamodbav:"f"`
 	M string        `dynamodbav:"-"`
-	N string				`dynamodbav:"n"`
+	N string        `dynamodbav:"n" dynamoGSI:"bozo,range"`
 }
 
 func TestGlobalSecondaryIndexes(t *testing.T) {

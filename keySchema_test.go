@@ -43,3 +43,46 @@ func TestKeySchemaWithProvisionedThroughput(t *testing.T) {
 	assert.EqualValues(t, 8, *thruput.ReadCapacityUnits)
 	assert.EqualValues(t, 4, *thruput.WriteCapacityUnits)
 }
+
+type TestSubStructWithHashKey struct {
+	C string `dynamoKey:"hash,13,7"`
+}
+type TestStructWithSubStruct struct {
+	A string `dynamoKey:"range"`
+	B TestSubStructWithHashKey
+}
+
+func TestKeySchemaWithSubStruct(t *testing.T) {
+	testStruct := &TestStructWithSubStruct{A: "foobar", B: TestSubStructWithHashKey{C: "snafu"}}
+	keySchema, thruput, err := keySchema(testStruct)
+	require.Nil(t, err)
+	require.NotNil(t, keySchema)
+	require.Equal(t, 2, len(keySchema))
+	assert.Equal(t, "B.C", *keySchema[0].AttributeName)
+	assert.Equal(t, dynamodb.KeyTypeHash, *keySchema[0].KeyType)
+	assert.Equal(t, "A", *keySchema[1].AttributeName)
+	assert.Equal(t, dynamodb.KeyTypeRange, *keySchema[1].KeyType)
+	require.NotNil(t, thruput)
+	assert.EqualValues(t, 13, *thruput.ReadCapacityUnits)
+	assert.EqualValues(t, 7, *thruput.WriteCapacityUnits)
+}
+
+type TestStructWithSubStructIndirect struct {
+	A string `dynamoKey:"range"`
+	B *TestSubStructWithHashKey `dynamodbav:"b"`
+}
+
+func TestKeySchemaWithSubStructIndirect(t *testing.T) {
+	testStruct := &TestStructWithSubStructIndirect{A: "foobar", B: &TestSubStructWithHashKey{C: "snafu"}}
+	keySchema, thruput, err := keySchema(testStruct)
+	require.Nil(t, err)
+	require.NotNil(t, keySchema)
+	require.Equal(t, 2, len(keySchema))
+	assert.Equal(t, "b.C", *keySchema[0].AttributeName)
+	assert.Equal(t, dynamodb.KeyTypeHash, *keySchema[0].KeyType)
+	assert.Equal(t, "A", *keySchema[1].AttributeName)
+	assert.Equal(t, dynamodb.KeyTypeRange, *keySchema[1].KeyType)
+	require.NotNil(t, thruput)
+	assert.EqualValues(t, 13, *thruput.ReadCapacityUnits)
+	assert.EqualValues(t, 7, *thruput.WriteCapacityUnits)
+}
