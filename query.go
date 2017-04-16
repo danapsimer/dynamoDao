@@ -77,6 +77,7 @@ func (dao *DynamoDBDao) PagedQuery(indexName, keyExpression, filterExpression st
 	if err != nil {
 		return nil, err
 	}
+
 	if lastItemKey != nil {
 		query.SetExclusiveStartKey(lastItemKey)
 	} else {
@@ -114,6 +115,7 @@ func (dao *DynamoDBDao) PagedQuery(indexName, keyExpression, filterExpression st
 						keyAttrValues[name] = item[name]
 					}
 					page.LastItemToken, err = keyToToken(keyAttrValues)
+
 					return false
 				}
 			}
@@ -148,6 +150,7 @@ func extractAttrNameAliasesFromExpression(expression string, attrNames map[strin
 		}
 	}
 	return expression
+
 }
 
 func decompress(in string) (out string, err error) {
