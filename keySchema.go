@@ -47,7 +47,7 @@ func keySchemaForTypeWithBaseName(baseName string, structType reflect.Type) ([]*
 			}
 			keySchema = addKeySchemaElement(keySchema, &keySchemaElem)
 		} else if field.Type.Kind() == reflect.Struct ||
-				(field.Type.Kind() == reflect.Ptr && field.Type.Elem().Kind() == reflect.Struct) {
+			(field.Type.Kind() == reflect.Ptr && field.Type.Elem().Kind() == reflect.Struct) {
 			structType := field.Type
 			if structType.Kind() == reflect.Ptr {
 				structType = field.Type.Elem()
@@ -70,7 +70,7 @@ func keySchemaForTypeWithBaseName(baseName string, structType reflect.Type) ([]*
 	return keySchema, thruput, nil
 }
 
-func getFieldName(baseName string, field reflect.StructField) (string) {
+func getFieldName(baseName string, field reflect.StructField) string {
 	name := baseName + field.Name
 	if dynamodbav, ok := field.Tag.Lookup("dynamodbav"); ok {
 		elements := strings.Split(dynamodbav, ",")

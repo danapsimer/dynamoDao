@@ -99,60 +99,63 @@ func (dao *DynamoDBDao) CreateOrUpdateTable(t interface{}) chan error {
 func (dao *DynamoDBDao) CreateOrUpdateTableForType(structType reflect.Type) chan error {
 	promise := make(chan error, 1)
 	go func() {
-		keySchema, thruput, err := keySchemaForType(structType)
-		if err != nil {
-			promise <- err
-			return
-		}
-		dao.keyAttrNames = make([]string, 0, 2)
-		dao.keyAttrNames = append(dao.keyAttrNames, *keySchema[0].AttributeName)
-		if len(keySchema) > 1 {
-			dao.keyAttrNames = append(dao.keyAttrNames, *keySchema[1].AttributeName)
-		}
-		if dao.readCapacity != 0 && dao.writeCapacity != 0 {
-			thruput = &dynamodb.ProvisionedThroughput{
-				ReadCapacityUnits:  aws.Int64(dao.readCapacity),
-				WriteCapacityUnits: aws.Int64(dao.writeCapacity),
-			}
-		} else if thruput == nil {
-			thruput = &dynamodb.ProvisionedThroughput{
-				ReadCapacityUnits:  aws.Int64(5),
-				WriteCapacityUnits: aws.Int64(1),
-			}
-		}
-		globalIndexes, err := globalIndexesForType(structType)
-		if err != nil {
-			promise <- err
-			return
-		}
-		localIndexes, err := localIndexesForType(structType, keySchema[0])
-		if err != nil {
-			promise <- err
-			return
-		}
-		allKeyAttrNames := collectUniqueKeyNames(keySchema, globalIndexes, localIndexes)
-		attributes, err := attributeDefinitionsForType(structType, allKeyAttrNames)
-		if err != nil {
-			promise <- err
-			return
-		}
-		createTable := dynamodb.CreateTableInput{
-			AttributeDefinitions:   attributes,
-			KeySchema:              keySchema,
-			GlobalSecondaryIndexes: globalIndexes,
-			LocalSecondaryIndexes:  localIndexes,
-			TableName:              aws.String(dao.tableName),
-			ProvisionedThroughput:  thruput,
-		}
-		if dao.enableStreaming {
-			createTable.StreamSpecification = &dynamodb.StreamSpecification{
-				StreamEnabled:  aws.Bool(dao.enableStreaming),
-				StreamViewType: aws.String(dao.streamViewType),
-			}
-		}
-		dao.createOrUpdateTable(&createTable, promise)
+		dao.structType = structType
+		dao.extractTableDescription()
+		dao.createOrUpdateTable(dao.tableDescription, promise)
 	}()
 	return promise
+}
+
+func (dao *DynamoDBDao) extractTableDescription() error {
+	keySchema, thruput, err := keySchemaForType(dao.structType)
+	if err != nil {
+		return err
+	}
+	dao.keyAttrNames = make([]string, 0, 2)
+	dao.keyAttrNames = append(dao.keyAttrNames, *keySchema[0].AttributeName)
+	if len(keySchema) > 1 {
+		dao.keyAttrNames = append(dao.keyAttrNames, *keySchema[1].AttributeName)
+	}
+	if dao.readCapacity != 0 && dao.writeCapacity != 0 {
+		thruput = &dynamodb.ProvisionedThroughput{
+			ReadCapacityUnits:  aws.Int64(dao.readCapacity),
+			WriteCapacityUnits: aws.Int64(dao.writeCapacity),
+		}
+	} else if thruput == nil {
+		thruput = &dynamodb.ProvisionedThroughput{
+			ReadCapacityUnits:  aws.Int64(5),
+			WriteCapacityUnits: aws.Int64(1),
+		}
+	}
+	globalIndexes, err := globalIndexesForType(dao.structType)
+	if err != nil {
+		return err
+	}
+	localIndexes, err := localIndexesForType(dao.structType, keySchema[0])
+	if err != nil {
+		return err
+	}
+	allKeyAttrNames := collectUniqueKeyNames(keySchema, globalIndexes, localIndexes)
+	attributes, attrToField, err := attributeDefinitionsForType(dao.structType, allKeyAttrNames)
+	if err != nil {
+		return err
+	}
+	dao.tableDescription = &dynamodb.CreateTableInput{
+		AttributeDefinitions:   attributes,
+		KeySchema:              keySchema,
+		GlobalSecondaryIndexes: globalIndexes,
+		LocalSecondaryIndexes:  localIndexes,
+		TableName:              aws.String(dao.TableName),
+		ProvisionedThroughput:  thruput,
+	}
+	if dao.enableStreaming {
+		dao.tableDescription.StreamSpecification = &dynamodb.StreamSpecification{
+			StreamEnabled:  aws.Bool(dao.enableStreaming),
+			StreamViewType: aws.String(dao.streamViewType),
+		}
+	}
+	dao.attrToField = attrToField
+	return nil
 }
 
 func collectUniqueKeyNames(key []*dynamodb.KeySchemaElement, gsi []*dynamodb.GlobalSecondaryIndex, lsi []*dynamodb.LocalSecondaryIndex) map[string]interface{} {
@@ -177,7 +180,7 @@ func (dao *DynamoDBDao) createOrUpdateTable(createTableInput *dynamodb.CreateTab
 	go func() {
 		exists := true
 		describeTableRequest := new(dynamodb.DescribeTableInput).SetTableName(*createTableInput.TableName)
-		describeTableResponse, err := dao.client.DescribeTable(describeTableRequest)
+		describeTableResponse, err := dao.Client.DescribeTable(describeTableRequest)
 		if err != nil {
 			if awsErr, ok := err.(awserr.Error); ok {
 				if awsErr.Code() != "ResourceNotFoundException" {
@@ -210,7 +213,7 @@ func (dao *DynamoDBDao) createOrUpdateTable(createTableInput *dynamodb.CreateTab
 }
 
 func (dao *DynamoDBDao) createTable(createTableInput *dynamodb.CreateTableInput, promise chan error) error {
-	_, err := dao.client.CreateTable(createTableInput)
+	_, err := dao.Client.CreateTable(createTableInput)
 	if err != nil {
 		promise <- errors.New(fmt.Sprintf("error occurred while creating table: %+v: %s",
 			createTableInput.GoString(), err.Error()))
@@ -239,7 +242,7 @@ func (dao *DynamoDBDao) updateProvisionedThroughputIfNeeded(newSchema *dynamodb.
 			SetAttributeDefinitions(newSchema.AttributeDefinitions).
 			SetTableName(*newSchema.TableName)
 		updateTableInput = updateTableInput.SetProvisionedThroughput(newSchema.ProvisionedThroughput)
-		_, err := dao.client.UpdateTable(updateTableInput)
+		_, err := dao.Client.UpdateTable(updateTableInput)
 		if err != nil {
 			err = errors.New(fmt.Sprintf("error occurred while updating table: %+v: %s", newSchema, err.Error()))
 			promise <- err
@@ -265,7 +268,7 @@ func (dao *DynamoDBDao) updateStreamingSpecIfNeeded(newSchema *dynamodb.CreateTa
 			streamSpec = &dynamodb.StreamSpecification{StreamEnabled: aws.Bool(false)}
 		}
 		updateTableInput = updateTableInput.SetStreamSpecification(streamSpec)
-		_, err := dao.client.UpdateTable(updateTableInput)
+		_, err := dao.Client.UpdateTable(updateTableInput)
 		if err != nil {
 			promise <- errors.New(fmt.Sprintf("error occurred while updating table: %+v: %s", newSchema, err.Error()))
 			return err
@@ -286,7 +289,7 @@ func (dao *DynamoDBDao) updateGlobalSecondaryIndexesIfNeeded(newSchema *dynamodb
 		SetTableName(*newSchema.TableName)
 	for _, action := range actions {
 		updateTableInput = updateTableInput.SetGlobalSecondaryIndexUpdates([]*dynamodb.GlobalSecondaryIndexUpdate{action})
-		_, err := dao.client.UpdateTable(updateTableInput)
+		_, err := dao.Client.UpdateTable(updateTableInput)
 		if err != nil {
 			promise <- errors.New(fmt.Sprintf("error occurred while updating table: %+v: %s", actions, err.Error()))
 			return err
@@ -378,7 +381,7 @@ func (dao *DynamoDBDao) awaitTableStatusActive(tableName string, promise chan er
 			return err
 		}
 		describeTableRequest := new(dynamodb.DescribeTableInput).SetTableName(tableName)
-		describeTableResponse, err := dao.client.DescribeTable(describeTableRequest)
+		describeTableResponse, err := dao.Client.DescribeTable(describeTableRequest)
 		if err != nil {
 			if awsErr, ok := err.(awserr.Error); ok {
 				if awsErr.Code() != "ResourceNotFoundException" {
@@ -409,7 +412,7 @@ func (dao *DynamoDBDao) awaitTableIndexStatusActive(tableName string, indexName 
 			return err
 		}
 		describeTableRequest := new(dynamodb.DescribeTableInput).SetTableName(tableName)
-		describeTableResponse, err := dao.client.DescribeTable(describeTableRequest)
+		describeTableResponse, err := dao.Client.DescribeTable(describeTableRequest)
 		if err != nil {
 			if awsErr, ok := err.(awserr.Error); ok {
 				if awsErr.Code() != "ResourceNotFoundException" {
@@ -430,10 +433,13 @@ func (dao *DynamoDBDao) awaitTableIndexStatusActive(tableName string, indexName 
 					break
 				}
 			}
+			//if newStatus == "" {
+			//	err := errors.New(fmt.Sprintf("could not find index in describe table response: %s/%s", tableName, indexName))
+			//	promise <- err
+			//	return err
+			//}
 			if newStatus == "" {
-				err := errors.New(fmt.Sprintf("could not find index in describe table response: %s/%s", tableName, indexName))
-				promise <- err
-				return err
+				newStatus = "PENDING"
 			}
 			status = newStatus
 		}

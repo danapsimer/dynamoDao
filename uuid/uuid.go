@@ -58,3 +58,5 @@ func (uuid *UUID) UnmarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) e
 	}
 	return nil
 }
+
+

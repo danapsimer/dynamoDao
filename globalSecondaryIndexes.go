@@ -47,7 +47,7 @@ func globalIndexesForType(structType reflect.Type) ([]*dynamodb.GlobalSecondaryI
 func extractGlobalSecondaryIndexes(baseName string, structType reflect.Type, GSIs map[string]*dynamodb.GlobalSecondaryIndex) error {
 	for f := 0; f < structType.NumField(); f++ {
 		field := structType.Field(f)
-		fieldName := getFieldName(baseName,field)
+		fieldName := getFieldName(baseName, field)
 		if fieldName == "-" {
 			continue
 		}
@@ -65,29 +65,29 @@ func extractGlobalSecondaryIndexes(baseName string, structType reflect.Type, GSI
 				}
 				switch role {
 				case "hash":
-					err := parseGSIHashKey(fieldName,nameAndRole,gsi)
+					err := parseGSIHashKey(fieldName, nameAndRole, gsi)
 					if err != nil {
 						return err
 					}
 				case "range":
-					err := parseGSIRangeKey(fieldName,gsi)
+					err := parseGSIRangeKey(fieldName, gsi)
 					if err != nil {
 						return err
 					}
 				case "project":
-					err := parseGSIProjectedField(fieldName,gsi)
+					err := parseGSIProjectedField(fieldName, gsi)
 					if err != nil {
 						return err
 					}
 				}
 			}
 		} else if field.Type.Kind() == reflect.Struct ||
-				(field.Type.Kind() == reflect.Ptr && field.Type.Elem().Kind() == reflect.Struct) {
+			(field.Type.Kind() == reflect.Ptr && field.Type.Elem().Kind() == reflect.Struct) {
 			structType := field.Type
 			if structType.Kind() == reflect.Ptr {
 				structType = field.Type.Elem()
 			}
-			err := extractGlobalSecondaryIndexes(fieldName+".",structType, GSIs)
+			err := extractGlobalSecondaryIndexes(fieldName+".", structType, GSIs)
 			if err != nil {
 				return err
 			}
@@ -112,7 +112,6 @@ func parseGSIProjectedField(fieldName string, gsi *dynamodb.GlobalSecondaryIndex
 	return nil
 }
 
-
 func parseGSIRangeKey(fieldName string, gsi *dynamodb.GlobalSecondaryIndex) error {
 	if gsi.KeySchema == nil {
 		gsi.KeySchema = make([]*dynamodb.KeySchemaElement, 0, 2)
@@ -124,7 +123,7 @@ func parseGSIRangeKey(fieldName string, gsi *dynamodb.GlobalSecondaryIndex) erro
 	return nil
 }
 
-func parseGSIHashKey(fieldName string,nameAndRole []string,gsi *dynamodb.GlobalSecondaryIndex) error {
+func parseGSIHashKey(fieldName string, nameAndRole []string, gsi *dynamodb.GlobalSecondaryIndex) error {
 	if gsi.KeySchema == nil {
 		gsi.KeySchema = make([]*dynamodb.KeySchemaElement, 0, 2)
 		gsi.KeySchema = append(gsi.KeySchema, &dynamodb.KeySchemaElement{
@@ -157,26 +156,26 @@ func parseGSIHashKey(fieldName string,nameAndRole []string,gsi *dynamodb.GlobalS
 			// Parse projection type
 			if gsi.Projection == nil {
 				gsi.Projection = new(dynamodb.Projection)
-				gsi.Projection.NonKeyAttributes = make([]*string, 0, 20)
 			}
 			projectionType := nameAndRole[4]
 			switch projectionType {
 			case "keys_only":
 				if len(gsi.Projection.NonKeyAttributes) > 0 {
-					return errors.New( fieldName + ": Projection is specified as keys_only but there are projected fields specified")
+					return errors.New(fieldName + ": Projection is specified as keys_only but there are projected fields specified")
 				}
 				gsi.Projection.ProjectionType = aws.String(dynamodb.ProjectionTypeKeysOnly)
 			case "all":
 				if len(gsi.Projection.NonKeyAttributes) > 0 {
-					return errors.New( fieldName + ": Projection is specified as all but there are projected fields specified")
+					return errors.New(fieldName + ": Projection is specified as all but there are projected fields specified")
 				}
 				gsi.Projection.ProjectionType = aws.String(dynamodb.ProjectionTypeAll)
 			case "include":
 				gsi.Projection.ProjectionType = aws.String(dynamodb.ProjectionTypeInclude)
+				gsi.Projection.NonKeyAttributes = make([]*string, 0, 20)
 			case "":
 			// do nothing.
 			default:
-				return errors.New( fieldName + ": invalid projection type specified: " + projectionType)
+				return errors.New(fieldName + ": invalid projection type specified: " + projectionType)
 			}
 		}
 	}

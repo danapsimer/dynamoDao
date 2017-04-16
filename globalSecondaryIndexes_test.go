@@ -18,9 +18,9 @@ type TestSubStruct struct {
 type TestStruct struct {
 	A string        `dynamoKey:"hash" dynamodbav:"a" dynamoGSI:"Foo,hash;Bar,hash,10,10,keys_only"`
 	B int64         `dynamoKey:"range" dynamodbav:",omitempty" dynamoGSI:"Foo,range;Snafu,hash,8,8;FooBar,hash"`
-	C float32       `dynamodbav:"c" dynamoGSI:"Snafu,range;FooBar,range" dynamoLSI:"fubar,range;fu,range,keys_only;snafu,range"`
-	D bool          `dynamoGSI:"Bar,range;Snafu,project" dynamoLSI:"snafu,project"`
-	E []byte        `dynamodbav:"e" dynamoGSI:"Snafu,project" dynamoLSI:"snafu,project"`
+	C float32       `dynamodbav:"c" dynamoGSI:"Snafu,range;FooBar,range"`
+	D bool          `dynamoGSI:"Bar,range;Snafu,project"`
+	E []byte        `dynamodbav:"e" dynamoGSI:"Snafu,project"`
 	F TestSubStruct `dynamodbav:"f"`
 	M string        `dynamodbav:"-"`
 	N string        `dynamodbav:"n" dynamoGSI:"bozo,range"`
@@ -31,7 +31,7 @@ func TestGlobalSecondaryIndexes(t *testing.T) {
 	gsi, err := globalIndexes(testStruct)
 	require.Nil(t, err, "error in globalIndexes")
 	require.NotNil(t, gsi)
-	assert.Equal(t, 4, len(gsi))
+	assert.Equal(t, 5, len(gsi))
 	// Convert array to map
 	gsiMap := make(map[string]*dynamodb.GlobalSecondaryIndex)
 	for _, x := range gsi {
@@ -91,4 +91,17 @@ func TestGlobalSecondaryIndexes(t *testing.T) {
 	assert.Equal(t, dynamodb.ProjectionTypeAll, *foobar.Projection.ProjectionType)
 	assert.EqualValues(t, 5, *foobar.ProvisionedThroughput.ReadCapacityUnits)
 	assert.EqualValues(t, 1, *foobar.ProvisionedThroughput.WriteCapacityUnits)
+
+	bozo, ok := gsiMap["bozo"]
+	require.True(t, ok)
+	require.NotNil(t, bozo)
+	require.Equal(t, 2, len(bozo.KeySchema))
+	assert.Equal(t, dynamodb.KeyTypeHash, *bozo.KeySchema[0].KeyType)
+	assert.Equal(t, "f.G", *bozo.KeySchema[0].AttributeName)
+	assert.Equal(t, dynamodb.KeyTypeRange, *bozo.KeySchema[1].KeyType)
+	assert.Equal(t, "n", *bozo.KeySchema[1].AttributeName)
+	assert.Empty(t, foo.Projection.NonKeyAttributes)
+	assert.Equal(t, dynamodb.ProjectionTypeAll, *bozo.Projection.ProjectionType)
+	assert.EqualValues(t, 5, *bozo.ProvisionedThroughput.ReadCapacityUnits)
+	assert.EqualValues(t, 1, *bozo.ProvisionedThroughput.WriteCapacityUnits)
 }

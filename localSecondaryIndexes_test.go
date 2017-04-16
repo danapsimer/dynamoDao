@@ -1,22 +1,41 @@
 package dynamoDao
 
 import (
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"testing"
-	"github.com/stretchr/testify/assert"
-	"github.com/aws/aws-sdk-go/aws"
 )
 
+type TestSubStructWithLSI struct {
+	G string `dynamoLSI:"bozo,range"`
+	H float64
+	I uint
+	K uint32 `dynamoLSI:"bozo,project"`
+	L uint64
+}
+
+type TestStructWithLSI struct {
+	A string               `dynamoKey:"hash" dynamodbav:"a"`
+	B int64                `dynamoKey:"range" dynamodbav:",omitempty"`
+	C float32              `dynamodbav:"c" dynamoLSI:"fubar,range;fu,range,keys_only;snafu,range"`
+	D bool                 `dynamoLSI:"snafu,project"`
+	E []byte               `dynamodbav:"e" dynamoLSI:"snafu,project"`
+	F TestSubStructWithLSI `dynamodbav:"f"`
+	M string               `dynamodbav:"-"`
+	N string               `dynamodbav:"n" dynamoLSI:"bozo,project"`
+}
+
 func TestLocalSecondaryIndexes(t *testing.T) {
-	testStruct := &TestStruct{}
+	testStruct := &TestStructWithLSI{}
 	gsi, err := localIndexes(testStruct, &dynamodb.KeySchemaElement{
 		AttributeName: aws.String("a"),
-		KeyType: aws.String(dynamodb.KeyTypeHash),
+		KeyType:       aws.String(dynamodb.KeyTypeHash),
 	})
 	require.Nil(t, err, "error in globalIndexes")
 	require.NotNil(t, gsi)
-	assert.Equal(t, 3, len(gsi))
+	assert.Equal(t, 4, len(gsi))
 	// Convert array to map
 	lsiMap := make(map[string]*dynamodb.LocalSecondaryIndex)
 	for _, x := range gsi {
@@ -57,4 +76,17 @@ func TestLocalSecondaryIndexes(t *testing.T) {
 	assert.Equal(t, "D", *snafu.Projection.NonKeyAttributes[0])
 	assert.Equal(t, "e", *snafu.Projection.NonKeyAttributes[1])
 	assert.Equal(t, dynamodb.ProjectionTypeInclude, *snafu.Projection.ProjectionType)
+
+	bozo, ok := lsiMap["bozo"]
+	require.True(t, ok)
+	require.NotNil(t, bozo)
+	require.Equal(t, 2, len(bozo.KeySchema))
+	assert.Equal(t, dynamodb.KeyTypeHash, *bozo.KeySchema[0].KeyType)
+	assert.Equal(t, "a", *bozo.KeySchema[0].AttributeName)
+	assert.Equal(t, dynamodb.KeyTypeRange, *bozo.KeySchema[1].KeyType)
+	assert.Equal(t, "f.G", *bozo.KeySchema[1].AttributeName)
+	require.Equal(t, 2, len(bozo.Projection.NonKeyAttributes))
+	assert.Equal(t, "f.K", *bozo.Projection.NonKeyAttributes[0])
+	assert.Equal(t, "n", *bozo.Projection.NonKeyAttributes[1])
+	assert.Equal(t, dynamodb.ProjectionTypeInclude, *bozo.Projection.ProjectionType)
 }

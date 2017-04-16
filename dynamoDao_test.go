@@ -8,8 +8,10 @@ import (
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"reflect"
 	"testing"
 	"time"
+	"log"
 )
 
 var awsConfig = aws.NewConfig().
@@ -19,11 +21,11 @@ var awsConfig = aws.NewConfig().
 	WithRegion("local")
 
 func resetTable(t *testing.T) {
-	session := session.New(awsConfig)
-	client := dynamodb.New(session)
-	_, err := client.DescribeTable(&dynamodb.DescribeTableInput{TableName: aws.String("DynamoDao.Test")})
+	sess := session.New(awsConfig)
+	client := dynamodb.New(sess)
+	_, err := client.DescribeTable(&dynamodb.DescribeTableInput{TableName: aws.String("Struct1")})
 	if err == nil {
-		_, err := client.DeleteTable(&dynamodb.DeleteTableInput{TableName: aws.String("DynamoDao.Test")})
+		_, err := client.DeleteTable(&dynamodb.DeleteTableInput{TableName: aws.String("Struct1")})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -33,7 +35,7 @@ func resetTable(t *testing.T) {
 type Struct1 struct {
 	Id          *uuid.UUID `dynamodbav:"person_id" dynamoKey:"hash"`
 	OrgId       uuid.UUID  `dynamodbav:"organization_id" dynamoGSI:"PhoneNumberIdx,hash"`
-	Name        string     `dynamodbav:"name"`
+	Name        string     `dynamodbav:"name" dynamoKey:"range"`
 	PhoneNumber string     `dynamodbav:"phone_number" dynamoGSI:"PhoneNumberIdx,range"`
 }
 
@@ -46,24 +48,20 @@ type Struct2 struct {
 }
 
 type TestDao struct {
-	DynamoDBDao
+	*DynamoDBDao
+}
+
+func init() {
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
 }
 
 func TestDynamoDBDao_CreateOrUpdateTable(t *testing.T) {
 	resetTable(t)
-	session := session.New(awsConfig)
-	client := dynamodb.New(session)
-	dao := &TestDao{
-		DynamoDBDao{
-			client:    client,
-			tableName: "DynamoDao.Test",
-		},
-	}
-
-	p := dao.CreateOrUpdateTable(&Struct1{})
-	err := <-p
-	require.Nil(t, err)
-	dt1, err := client.DescribeTable(&dynamodb.DescribeTableInput{TableName: aws.String("DynamoDao.Test")})
+	sess := session.New(awsConfig)
+	client := dynamodb.New(sess)
+	dao, err := NewDynamoDBDaoForType(sess, reflect.TypeOf(Struct1{}))
+	require.NoError(t, err)
+	dt1, err := client.DescribeTable(&dynamodb.DescribeTableInput{TableName: aws.String("Struct1")})
 	require.Nil(t, err)
 	require.NotNil(t, dt1)
 	// Check First Describe Table:
@@ -106,11 +104,11 @@ func TestDynamoDBDao_CreateOrUpdateTable(t *testing.T) {
 		//assert.False(t, *dt1.Table.StreamSpecification.StreamEnabled)
 	}
 
-	p = dao.CreateOrUpdateTable(&Struct2{})
+	p := dao.CreateOrUpdateTableForType(getStructType(&Struct2{}))
 	err = <-p
-	require.Nil(t, err)
-	dt2, err := client.DescribeTable(&dynamodb.DescribeTableInput{TableName: aws.String("DynamoDao.Test")})
-	require.Nil(t, err)
+	require.NoError(t, err)
+	dt2, err := client.DescribeTable(&dynamodb.DescribeTableInput{TableName: aws.String("Struct1")})
+	require.NoError(t, err)
 	require.NotNil(t, dt2)
 	{
 		assert.Equal(t, 5, len(dt2.Table.AttributeDefinitions))
@@ -144,11 +142,11 @@ func TestDynamoDBDao_CreateOrUpdateTable(t *testing.T) {
 	dao.readCapacity = 10
 	dao.writeCapacity = 5
 
-	p = dao.CreateOrUpdateTable(&Struct2{})
+	p = dao.CreateOrUpdateTableForType(getStructType(&Struct2{}))
 	err = <-p
-	require.Nil(t, err)
-	dt3, err := client.DescribeTable(&dynamodb.DescribeTableInput{TableName: aws.String("DynamoDao.Test")})
-	require.Nil(t, err)
+	require.NoError(t, err)
+	dt3, err := client.DescribeTable(&dynamodb.DescribeTableInput{TableName: aws.String("Struct1")})
+	require.NoError(t, err)
 	require.NotNil(t, dt3)
 	assert.EqualValues(t, 10, *dt3.Table.ProvisionedThroughput.ReadCapacityUnits)
 	assert.EqualValues(t, 5, *dt3.Table.ProvisionedThroughput.WriteCapacityUnits)
@@ -156,20 +154,22 @@ func TestDynamoDBDao_CreateOrUpdateTable(t *testing.T) {
 	dao.enableStreaming = true
 	dao.streamViewType = dynamodb.StreamViewTypeNewImage
 
-	p = dao.CreateOrUpdateTable(&Struct2{})
+	p = dao.CreateOrUpdateTableForType(getStructType(Struct2{}))
 	err = <-p
-	require.Nil(t, err)
-	dt4, err := client.DescribeTable(&dynamodb.DescribeTableInput{TableName: aws.String("DynamoDao.Test")})
-	require.Nil(t, err)
+	require.NoError(t, err)
+	dt4, err := client.DescribeTable(&dynamodb.DescribeTableInput{TableName: aws.String("Struct1")})
+	require.NoError(t, err)
 	require.NotNil(t, dt4)
+	require.NotNil(t, dt4.Table)
+	require.NotNil(t, dt4.Table.StreamSpecification)
 	assert.True(t, *dt4.Table.StreamSpecification.StreamEnabled)
 	assert.Equal(t, dynamodb.StreamViewTypeNewImage, *dt4.Table.StreamSpecification.StreamViewType)
 
 	dao.enableStreaming = false
-	p = dao.CreateOrUpdateTable(&Struct2{})
+	p = dao.CreateOrUpdateTableForType(getStructType(&Struct2{}))
 	err = <-p
 	require.Nil(t, err)
-	dt5, err := client.DescribeTable(&dynamodb.DescribeTableInput{TableName: aws.String("DynamoDao.Test")})
+	dt5, err := client.DescribeTable(&dynamodb.DescribeTableInput{TableName: aws.String("Struct1")})
 	require.Nil(t, err)
 	require.NotNil(t, dt5)
 	assert.Nil(t, dt5.Table.StreamSpecification)
@@ -179,7 +179,7 @@ func TestDynamoDBDao_CreateOrUpdateTable(t *testing.T) {
 	p = dao.CreateOrUpdateTable(&Struct2{})
 	err = <-p
 	require.Nil(t, err)
-	dt6, err := client.DescribeTable(&dynamodb.DescribeTableInput{TableName: aws.String("DynamoDao.Test")})
+	dt6, err := client.DescribeTable(&dynamodb.DescribeTableInput{TableName: aws.String("Struct1")})
 	require.Nil(t, err)
 	require.NotNil(t, dt6)
 
@@ -190,18 +190,9 @@ func TestDynamoDBDao_CreateOrUpdateTable(t *testing.T) {
 func setup(t *testing.T) *TestDao {
 	resetTable(t)
 	session := session.New(awsConfig)
-	client := dynamodb.New(session)
-	dao := &TestDao{
-		DynamoDBDao{
-			client:    client,
-			tableName: "DynamoDao.Test",
-		},
-	}
-
-	p := dao.CreateOrUpdateTable(&Struct1{})
-	err := <-p
-	require.Nil(t, err)
-	return dao
+	dao, err := NewDynamoDBDaoForType(session, reflect.TypeOf(Struct1{}))
+	require.NoError(t, err)
+	return &TestDao{dao}
 }
 
 func TestDynamoDBDao_PutItem(t *testing.T) {
@@ -215,7 +206,7 @@ func TestDynamoDBDao_PutItem(t *testing.T) {
 		Name:        "Joe Blow",
 		PhoneNumber: "4045551212",
 	})
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.NotNil(t, saved)
 
 	savedStruct1, ok := saved.(*Struct1)
@@ -228,7 +219,7 @@ func TestDynamoDBDao_PutItem(t *testing.T) {
 	retrieved, err := dao.GetItem(&Struct1{
 		Id: savedStruct1.Id,
 	})
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.NotNil(t, retrieved)
 	retrievedStruct1, ok := retrieved.(*Struct1)
 	require.True(t, ok)
@@ -262,7 +253,7 @@ func TestDynamoDBDao_UpdateItem(t *testing.T) {
 	savedStruct1.PhoneNumber = "7705551212"
 
 	updated, err := dao.UpdateItem(savedStruct1)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.NotNil(t, updated)
 	updatedStruct1, ok := updated.(*Struct1)
 	require.True(t, ok)
@@ -283,7 +274,7 @@ func TestDynamoDBDao_DeleteItem(t *testing.T) {
 		Name:        "Joe Blow",
 		PhoneNumber: "4045551212",
 	})
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.NotNil(t, saved)
 
 	savedStruct1, ok := saved.(*Struct1)
@@ -292,7 +283,7 @@ func TestDynamoDBDao_DeleteItem(t *testing.T) {
 	key := Struct1{Id: savedStruct1.Id}
 
 	deleted, err := dao.DeleteItem(&key)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.NotNil(t, deleted)
 	updatedStruct1, ok := deleted.(*Struct1)
 	require.True(t, ok)
@@ -300,5 +291,8 @@ func TestDynamoDBDao_DeleteItem(t *testing.T) {
 	assert.Equal(t, savedStruct1.OrgId, updatedStruct1.OrgId)
 	assert.Equal(t, savedStruct1.Name, updatedStruct1.Name)
 	assert.Equal(t, savedStruct1.PhoneNumber, updatedStruct1.PhoneNumber)
-}
 
+	retrieved, err := dao.GetItem(&key)
+	assert.NoError(t, err)
+	assert.Nil(t, retrieved)
+}

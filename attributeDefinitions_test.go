@@ -9,7 +9,7 @@ import (
 
 func TestAttributeDefinitions(t *testing.T) {
 	testStruct := &TestStruct{}
-	attrDefs, err := attributeDefinitions(testStruct, map[string]interface{}{
+	attrDefs, _, err := attributeDefinitions(testStruct, map[string]interface{}{
 		"a": nil,
 		"B": nil,
 		"c": nil,
@@ -73,9 +73,9 @@ func TestAttributeDefinitionsWithSubStructs(t *testing.T) {
 	attrNames["a.E"] = nil
 	attrNames["B.d"] = nil
 	attrNames["B.E"] = nil
-	attrDefs, err := attributeDefinitions(&testStruct, attrNames)
-	require.Nil(t,err)
-	require.NotNil(t,attrDefs)
+	attrDefs, _, err := attributeDefinitions(&testStruct, attrNames)
+	require.Nil(t, err)
+	require.NotNil(t, attrDefs)
 	require.EqualValues(t, 4, len(attrDefs))
 	assert.EqualValues(t, "a.d", *attrDefs[0].AttributeName)
 	assert.EqualValues(t, "S", *attrDefs[0].AttributeType)

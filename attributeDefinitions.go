@@ -2,8 +2,6 @@ package dynamoDao
 
 import (
 	"code.bluesoftdev.com/v1/repos/dynamoDao/uuid"
-	"errors"
-	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"reflect"
@@ -39,16 +37,17 @@ func mapToScalarType(t reflect.Type) string {
 	}
 }
 
-func attributeDefinitions(t interface{}, allKeyAttrNames map[string]interface{}) ([]*dynamodb.AttributeDefinition, error) {
+func attributeDefinitions(t interface{}, allKeyAttrNames map[string]interface{}) ([]*dynamodb.AttributeDefinition, map[string]*reflect.StructField, error) {
 	return attributeDefinitionsForType(getStructType(t), allKeyAttrNames)
 }
 
-func attributeDefinitionsForType(structType reflect.Type, allKeyAttrNames map[string]interface{}) ([]*dynamodb.AttributeDefinition, error) {
+func attributeDefinitionsForType(structType reflect.Type, allKeyAttrNames map[string]interface{}) ([]*dynamodb.AttributeDefinition,map[string]*reflect.StructField, error) {
 	return attributeDefinitionsForTypeWithBaseName("", structType, allKeyAttrNames)
 }
 
-func attributeDefinitionsForTypeWithBaseName(baseName string, structType reflect.Type, allKeyAttrNames map[string]interface{}) ([]*dynamodb.AttributeDefinition, error) {
+func attributeDefinitionsForTypeWithBaseName(baseName string, structType reflect.Type, allKeyAttrNames map[string]interface{}) ([]*dynamodb.AttributeDefinition, map[string]*reflect.StructField,error) {
 	attrDefs := make([]*dynamodb.AttributeDefinition, 0, structType.NumField())
+	attrToField := make(map[string]*reflect.StructField)
 	for f := 0; f < structType.NumField(); f++ {
 		field := structType.Field(f)
 		name, awsType := parseAttrDef(field, baseName, allKeyAttrNames)
@@ -58,26 +57,30 @@ func attributeDefinitionsForTypeWithBaseName(baseName string, structType reflect
 				AttributeType: aws.String(awsType),
 			}
 			attrDefs = append(attrDefs, &attrDef)
+			attrToField[name] = &field
 		} else if name != "-" && (field.Type.Kind() == reflect.Struct ||
 			(field.Type.Kind() == reflect.Ptr && field.Type.Elem().Kind() == reflect.Struct)) {
 			structType := field.Type
 			if structType.Kind() == reflect.Ptr {
 				structType = field.Type.Elem()
 			}
-			subTypeAttrDefs, err := attributeDefinitionsForTypeWithBaseName(name+".", structType, allKeyAttrNames)
+			subTypeAttrDefs, subAttrToField, err := attributeDefinitionsForTypeWithBaseName(name+".", structType, allKeyAttrNames)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 			if subTypeAttrDefs != nil {
 				for _, attrDef := range subTypeAttrDefs {
 					attrDefs = append(attrDefs, attrDef)
 				}
 			}
-		} else if name != "-" {
-			return nil, errors.New(fmt.Sprintf("Key or Indexed field with unknown type: %s/%s", name, awsType))
+			if subAttrToField != nil {
+				for k, v := range subAttrToField {
+					attrToField[k] = v
+				}
+			}
 		}
 	}
-	return attrDefs, nil
+	return attrDefs, attrToField, nil
 }
 
 func parseAttrDef(field reflect.StructField, baseName string, allKeyAttrNames map[string]interface{}) (string, string) {
@@ -94,7 +97,7 @@ func parseAttrDef(field reflect.StructField, baseName string, allKeyAttrNames ma
 		}
 		if len(values) > 1 && values[1] != "" {
 			typ := values[1]
-			if values[1] == "omitempty" && len(values) > 2 && values[2] != "" {
+			if values[1] == "omitempty" && len(values) > 2 {
 				typ = values[2]
 			}
 			switch typ {
@@ -105,10 +108,8 @@ func parseAttrDef(field reflect.StructField, baseName string, allKeyAttrNames ma
 			}
 		}
 	}
-	if awsType != "" {
-		if _, ok := allKeyAttrNames[name]; !ok {
-			name = "-" // Ignore this field for the attr list.
-		}
+	if _, ok := allKeyAttrNames[name]; awsType != "" && !ok {
+		name = "-" // Ignore this field for the attr list.
 	}
 	return name, awsType
 }
