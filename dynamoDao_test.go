@@ -8,17 +8,17 @@ import (
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"log"
 	"reflect"
 	"testing"
 	"time"
-	"log"
 )
 
 var awsConfig = aws.NewConfig().
-	WithCredentials(credentials.NewStaticCredentials("DUMMY_ACCESS_ID", "DUMMY_SECRET", "")).
+	WithCredentials(credentials.NewStaticCredentials("DynamoDAOTest", "DUMMY_SECRET", "")).
 	WithDisableSSL(true).
 	WithEndpoint("http://127.0.0.1:8000").
-	WithRegion("local")
+	WithRegion("us-west-2")
 
 func resetTable(t *testing.T) {
 	sess := session.New(awsConfig)

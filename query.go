@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
-	"reflect"
+	"log"
 	"regexp"
 	"strings"
 )
@@ -22,6 +22,10 @@ type SearchPage struct {
 
 var (
 	attrNameTokenRegex = regexp.MustCompile("\\{[^}]+\\}")
+)
+
+const (
+	logQuery = false
 )
 
 /*
@@ -54,6 +58,9 @@ func (dao *DynamoDBDao) PagedQuery(indexName, keyExpression, filterExpression st
 	}
 	if filterExpression != "" {
 		countQuery = countQuery.SetFilterExpression(filterExpression)
+	}
+	if logQuery {
+		log.Printf("countQuery = %+v", countQuery)
 	}
 	countResult, err := dao.Client.Query(countQuery)
 	if err != nil {
@@ -100,15 +107,17 @@ func (dao *DynamoDBDao) PagedQuery(indexName, keyExpression, filterExpression st
 		}
 	}
 	itemIndex := int64(0)
+	if logQuery {
+		log.Printf("query = %+v", query)
+	}
 	dao.Client.QueryPages(query, func(result *dynamodb.QueryOutput, lastPage bool) bool {
 		for _, item := range result.Items {
 			if itemIndex >= firstItemToProcess {
-				data := reflect.New(dao.structType)
-				err = dynamodbattribute.UnmarshalMap(item, data)
+				ptrT, err := dao.UnmarshalAttributes(item)
 				if err != nil {
 					return false
 				}
-				page.Data = append(page.Data, data)
+				page.Data = append(page.Data, ptrT)
 				if int64(len(page.Data)) >= pageSize {
 					keyAttrValues := make(map[string]*dynamodb.AttributeValue)
 					for _, name := range keyAttrs {
@@ -138,6 +147,7 @@ func extractAttrNameAliasesFromExpression(expression string, attrNames map[strin
 		for _, attrNameToken := range attrNamesFound {
 			attrName := attrNameToken[1 : len(attrNameToken)-1]
 			substituteName := string([]byte{0x23, nextSubstituteNameChar})
+			nextSubstituteNameChar += 1
 			for subName, attrNamePtr := range attrNames {
 				if *attrNamePtr == attrName {
 					substituteName = subName

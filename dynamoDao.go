@@ -71,7 +71,7 @@ func getStructType(t interface{}) reflect.Type {
 }
 
 func (dao *DynamoDBDao) PutItem(t interface{}) (interface{}, error) {
-	attrVals, err := dynamodbattribute.MarshalMap(t)
+	attrVals, err := dao.MarshalAttributes(t)
 	if err != nil {
 		return nil, err
 	}
@@ -82,13 +82,46 @@ func (dao *DynamoDBDao) PutItem(t interface{}) (interface{}, error) {
 	_, err = dao.Client.PutItem(putItem)
 	if err != nil {
 		if awserr, ok := err.(awserr.Error); ok {
-			log.Printf("ERROR: %+v", awserr)
+			log.Printf("ERROR: %+v: %+v", awserr, putItem)
 			return nil, awserr
 		}
 		return nil, err
 	}
 
 	return t, nil
+}
+
+func (dao *DynamoDBDao) MarshalAttributes(t interface{}) (map[string]*dynamodb.AttributeValue, error) {
+	attrVals, err := dynamodbattribute.MarshalMap(t)
+	if err != nil {
+		return nil, err
+	}
+	return attrVals, nil
+}
+
+func (dao *DynamoDBDao) UnmarshalAttributes(attributes map[string]*dynamodb.AttributeValue) (interface{},error) {
+	newT := reflect.New(dao.structType).Elem().Interface()
+	ptrT := to_struct_ptr(newT)
+	err := dynamodbattribute.UnmarshalMap(attributes, ptrT)
+	if err != nil {
+		return nil, err
+	}
+	return ptrT, nil
+}
+
+func (dao *DynamoDBDao) MarshalKey(key interface{}) (map[string]*dynamodb.AttributeValue, error) {
+	keyAttrs, err := dynamodbattribute.MarshalMap(key)
+	if err != nil {
+		return nil, err
+	}
+	if dao.keyAttrNames != nil && len(dao.keyAttrNames) > 0 {
+		newKeyAttrs := make(map[string]*dynamodb.AttributeValue)
+		for _, k := range dao.keyAttrNames {
+			newKeyAttrs[k] = keyAttrs[k]
+		}
+		keyAttrs = newKeyAttrs
+	}
+	return keyAttrs, nil
 }
 
 func (dao *DynamoDBDao) UpdateItem(t interface{}) (interface{}, error) {
@@ -113,10 +146,7 @@ func (dao *DynamoDBDao) UpdateItem(t interface{}) (interface{}, error) {
 		log.Printf("ERROR: %+v: %+v", err, updateItemResponse)
 		return nil, err
 	}
-	typ := reflect.ValueOf(t).Elem().Type()
-	newT := reflect.New(typ).Elem().Interface()
-	ptrT := to_struct_ptr(newT)
-	err = dynamodbattribute.UnmarshalMap(updateItemResponse.Attributes, ptrT)
+	ptrT, err := dao.UnmarshalAttributes(updateItemResponse.Attributes)
 	if err != nil {
 		log.Printf("ERROR: %+v: %+v", err, updateItemResponse)
 		return nil, err
@@ -126,16 +156,9 @@ func (dao *DynamoDBDao) UpdateItem(t interface{}) (interface{}, error) {
 
 func (dao *DynamoDBDao) GetItem(key interface{}) (interface{}, error) {
 
-	keyAttrs, err := dynamodbattribute.MarshalMap(key)
+  keyAttrs, err := dao.MarshalKey(key)
 	if err != nil {
 		return nil, err
-	}
-	if dao.keyAttrNames != nil && len(dao.keyAttrNames) > 0 {
-		newKeyAttrs := make(map[string]*dynamodb.AttributeValue)
-		for _, k := range dao.keyAttrNames {
-			newKeyAttrs[k] = keyAttrs[k]
-		}
-		keyAttrs = newKeyAttrs
 	}
 
 	getItem := new(dynamodb.GetItemInput).SetTableName(dao.TableName).SetKey(keyAttrs)
@@ -145,10 +168,10 @@ func (dao *DynamoDBDao) GetItem(key interface{}) (interface{}, error) {
 		log.Printf("ERROR: %+v: %+v", err, getItem)
 		return nil, err
 	}
-	typ := reflect.ValueOf(key).Elem().Type()
-	newT := reflect.New(typ).Elem().Interface()
-	ptrT := to_struct_ptr(newT)
-	err = dynamodbattribute.UnmarshalMap(response.Item, ptrT)
+	if len(response.Item) == 0 {
+		return nil, nil
+	}
+	ptrT, err := dao.UnmarshalAttributes(response.Item)
 	if err != nil {
 		log.Printf("ERROR: %+v: %+v", err, response)
 		return nil, err
@@ -158,17 +181,10 @@ func (dao *DynamoDBDao) GetItem(key interface{}) (interface{}, error) {
 
 func (dao *DynamoDBDao) DeleteItem(key interface{}) (interface{}, error) {
 
-	keyAttrs, err := dynamodbattribute.MarshalMap(key)
+	keyAttrs, err := dao.MarshalKey(key)
 	if err != nil {
 		log.Printf("ERROR: %+v: %+v", err, key)
 		return nil, err
-	}
-	if dao.keyAttrNames != nil && len(dao.keyAttrNames) > 0 {
-		newKeyAttrs := make(map[string]*dynamodb.AttributeValue)
-		for _, k := range dao.keyAttrNames {
-			newKeyAttrs[k] = keyAttrs[k]
-		}
-		keyAttrs = newKeyAttrs
 	}
 
 	deleteItem := new(dynamodb.DeleteItemInput).SetTableName(dao.TableName).SetKey(keyAttrs).
@@ -180,11 +196,7 @@ func (dao *DynamoDBDao) DeleteItem(key interface{}) (interface{}, error) {
 		return nil, err
 	}
 	if len(response.Attributes) > 0 {
-		typ := reflect.ValueOf(key).Elem().Type()
-		newT := reflect.New(typ).Elem().Interface()
-		ptrT := to_struct_ptr(newT)
-
-		err = dynamodbattribute.UnmarshalMap(response.Attributes, ptrT)
+		ptrT, err := dao.UnmarshalAttributes(response.Attributes)
 		if err != nil {
 			log.Printf("ERROR: %+v: %+v", err, response)
 			return nil, err

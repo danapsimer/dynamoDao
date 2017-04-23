@@ -6,6 +6,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"reflect"
 	"strings"
+	"time"
 )
 
 func mapFieldTypeToScalarType(f reflect.StructField) string {
@@ -25,6 +26,8 @@ func mapToScalarType(t reflect.Type) string {
 	case reflect.Struct:
 		if t.AssignableTo(reflect.TypeOf(uuid.Nil)) {
 			return "B"
+		} else if t.AssignableTo(reflect.TypeOf(time.Now())) {
+			return "S"
 		}
 		return ""
 	case reflect.Array, reflect.Slice:
@@ -41,11 +44,11 @@ func attributeDefinitions(t interface{}, allKeyAttrNames map[string]interface{})
 	return attributeDefinitionsForType(getStructType(t), allKeyAttrNames)
 }
 
-func attributeDefinitionsForType(structType reflect.Type, allKeyAttrNames map[string]interface{}) ([]*dynamodb.AttributeDefinition,map[string]*reflect.StructField, error) {
+func attributeDefinitionsForType(structType reflect.Type, allKeyAttrNames map[string]interface{}) ([]*dynamodb.AttributeDefinition, map[string]*reflect.StructField, error) {
 	return attributeDefinitionsForTypeWithBaseName("", structType, allKeyAttrNames)
 }
 
-func attributeDefinitionsForTypeWithBaseName(baseName string, structType reflect.Type, allKeyAttrNames map[string]interface{}) ([]*dynamodb.AttributeDefinition, map[string]*reflect.StructField,error) {
+func attributeDefinitionsForTypeWithBaseName(baseName string, structType reflect.Type, allKeyAttrNames map[string]interface{}) ([]*dynamodb.AttributeDefinition, map[string]*reflect.StructField, error) {
 	attrDefs := make([]*dynamodb.AttributeDefinition, 0, structType.NumField())
 	attrToField := make(map[string]*reflect.StructField)
 	for f := 0; f < structType.NumField(); f++ {
