@@ -1,7 +1,7 @@
 package dynamoDao
 
 import (
-	"code.bluesoftdev.com/v1/repos/dynamoDao/uuid"
+	"code.bluesoftdev.com/dynamoDao/uuid"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
