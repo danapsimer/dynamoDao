@@ -15,6 +15,10 @@ var (
 	UnrecognizedUUID = errors.New("attribute value is not a UUID")
 )
 
+func NewFromBytes(bytes [16]byte) UUID {
+	return UUID{base.UUID(bytes)}
+}
+
 func NewV5(ns UUID, name string) UUID {
 	return UUID{base.NewV5(ns.UUID, name)}
 }
@@ -58,5 +62,3 @@ func (uuid *UUID) UnmarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) e
 	}
 	return nil
 }
-
-
