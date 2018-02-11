@@ -1,9 +1,0 @@
-[submodule "vendor/github.com/aws/aws-sdk-go"]
-	path = vendor/github.com/aws/aws-sdk-go
-	url = https://github.com/aws/aws-sdk-go
-[submodule "vendor/github.com/satori/go.uuid"]
-	path = vendor/github.com/satori/go.uuid
-	url = https://github.com/satori/go.uuid
-[submodule "vendor/github.com/stretchr/testify"]
-	path = vendor/github.com/stretchr/testify
-	url = https://github.com/stretchr/testify
