@@ -8,22 +8,22 @@ import (
 )
 
 type TestSubStruct struct {
-	G string `dynamoGSI:"bozo,hash"`
+	G string
 	H float64
-	I uint `dynamoGSI:"Bar,range;Snafu,project"`
+	I uint `dynamoGSI:"Snafu,project"`
 	K uint32
 	L uint64
 }
 
 type TestStruct struct {
-	A string  `dynamoKey:"hash" dynamodbav:"a" dynamoGSI:"Foo,hash;Bar,hash,10,10,keys_only"`
+	A string  `dynamoKey:"hash" dynamodbav:"a" dynamoGSI:"Foo,hash"`
 	B int64   `dynamoKey:"range" dynamodbav:",omitempty" dynamoGSI:"Foo,range;Snafu,hash,8,8;FooBar,hash"`
 	C float32 `dynamodbav:"c" dynamoGSI:"Snafu,range;FooBar,range"`
 	D bool
 	E []byte        `dynamodbav:"e" dynamoGSI:"Snafu,project"`
 	F TestSubStruct `dynamodbav:"f"`
 	M string        `dynamodbav:"-"`
-	N string        `dynamodbav:"n" dynamoGSI:"bozo,range"`
+	N string        `dynamodbav:"n"`
 }
 
 func TestGlobalSecondaryIndexes(t *testing.T) {
@@ -31,7 +31,7 @@ func TestGlobalSecondaryIndexes(t *testing.T) {
 	gsi, err := globalIndexes(testStruct)
 	require.Nil(t, err, "error in globalIndexes")
 	require.NotNil(t, gsi)
-	assert.Equal(t, 5, len(gsi))
+	assert.Equal(t, 3, len(gsi))
 	// Convert array to map
 	gsiMap := make(map[string]*dynamodb.GlobalSecondaryIndex)
 	for _, x := range gsi {
@@ -51,19 +51,6 @@ func TestGlobalSecondaryIndexes(t *testing.T) {
 	assert.EqualValues(t, 5, *foo.ProvisionedThroughput.ReadCapacityUnits)
 	assert.EqualValues(t, 1, *foo.ProvisionedThroughput.WriteCapacityUnits)
 
-	bar, ok := gsiMap["Bar"]
-	require.True(t, ok)
-	require.NotNil(t, bar)
-	require.Equal(t, 2, len(bar.KeySchema))
-	assert.Equal(t, dynamodb.KeyTypeHash, *bar.KeySchema[0].KeyType)
-	assert.Equal(t, "a", *bar.KeySchema[0].AttributeName)
-	assert.Equal(t, dynamodb.KeyTypeRange, *bar.KeySchema[1].KeyType)
-	assert.Equal(t, "f.I", *bar.KeySchema[1].AttributeName)
-	assert.Empty(t, bar.Projection.NonKeyAttributes)
-	assert.Equal(t, dynamodb.ProjectionTypeKeysOnly, *bar.Projection.ProjectionType)
-	assert.EqualValues(t, 10, *bar.ProvisionedThroughput.ReadCapacityUnits)
-	assert.EqualValues(t, 10, *bar.ProvisionedThroughput.WriteCapacityUnits)
-
 	snafu, ok := gsiMap["Snafu"]
 	require.True(t, ok)
 	require.NotNil(t, snafu)
@@ -73,35 +60,22 @@ func TestGlobalSecondaryIndexes(t *testing.T) {
 	assert.Equal(t, dynamodb.KeyTypeRange, *snafu.KeySchema[1].KeyType)
 	assert.Equal(t, "c", *snafu.KeySchema[1].AttributeName)
 	require.Equal(t, 2, len(snafu.Projection.NonKeyAttributes))
-	assert.Equal(t, "f.I", *snafu.Projection.NonKeyAttributes[0])
-	assert.Equal(t, "e", *snafu.Projection.NonKeyAttributes[1])
+	assert.Equal(t, "e", *snafu.Projection.NonKeyAttributes[0])
+	assert.Equal(t, "f.I", *snafu.Projection.NonKeyAttributes[1])
 	assert.Equal(t, dynamodb.ProjectionTypeInclude, *snafu.Projection.ProjectionType)
 	assert.EqualValues(t, 8, *snafu.ProvisionedThroughput.ReadCapacityUnits)
 	assert.EqualValues(t, 8, *snafu.ProvisionedThroughput.WriteCapacityUnits)
 
-	foobar, ok := gsiMap["Foo"]
+	foobar, ok := gsiMap["FooBar"]
 	require.True(t, ok)
 	require.NotNil(t, foobar)
 	require.Equal(t, 2, len(foobar.KeySchema))
 	assert.Equal(t, dynamodb.KeyTypeHash, *foobar.KeySchema[0].KeyType)
-	assert.Equal(t, "a", *foobar.KeySchema[0].AttributeName)
+	assert.Equal(t, "B", *foobar.KeySchema[0].AttributeName)
 	assert.Equal(t, dynamodb.KeyTypeRange, *foobar.KeySchema[1].KeyType)
-	assert.Equal(t, "B", *foobar.KeySchema[1].AttributeName)
+	assert.Equal(t, "c", *foobar.KeySchema[1].AttributeName)
 	assert.Empty(t, foo.Projection.NonKeyAttributes)
 	assert.Equal(t, dynamodb.ProjectionTypeAll, *foobar.Projection.ProjectionType)
 	assert.EqualValues(t, 5, *foobar.ProvisionedThroughput.ReadCapacityUnits)
 	assert.EqualValues(t, 1, *foobar.ProvisionedThroughput.WriteCapacityUnits)
-
-	bozo, ok := gsiMap["bozo"]
-	require.True(t, ok)
-	require.NotNil(t, bozo)
-	require.Equal(t, 2, len(bozo.KeySchema))
-	assert.Equal(t, dynamodb.KeyTypeHash, *bozo.KeySchema[0].KeyType)
-	assert.Equal(t, "f.G", *bozo.KeySchema[0].AttributeName)
-	assert.Equal(t, dynamodb.KeyTypeRange, *bozo.KeySchema[1].KeyType)
-	assert.Equal(t, "n", *bozo.KeySchema[1].AttributeName)
-	assert.Empty(t, foo.Projection.NonKeyAttributes)
-	assert.Equal(t, dynamodb.ProjectionTypeAll, *bozo.Projection.ProjectionType)
-	assert.EqualValues(t, 5, *bozo.ProvisionedThroughput.ReadCapacityUnits)
-	assert.EqualValues(t, 1, *bozo.ProvisionedThroughput.WriteCapacityUnits)
 }

@@ -99,7 +99,7 @@ func (dao *DynamoDBDao) MarshalAttributes(t interface{}) (map[string]*dynamodb.A
 	return attrVals, nil
 }
 
-func (dao *DynamoDBDao) UnmarshalAttributes(attributes map[string]*dynamodb.AttributeValue) (interface{},error) {
+func (dao *DynamoDBDao) UnmarshalAttributes(attributes map[string]*dynamodb.AttributeValue) (interface{}, error) {
 	newT := reflect.New(dao.structType).Elem().Interface()
 	ptrT := to_struct_ptr(newT)
 	err := dynamodbattribute.UnmarshalMap(attributes, ptrT)
@@ -156,7 +156,7 @@ func (dao *DynamoDBDao) UpdateItem(t interface{}) (interface{}, error) {
 
 func (dao *DynamoDBDao) GetItem(key interface{}) (interface{}, error) {
 
-  keyAttrs, err := dao.MarshalKey(key)
+	keyAttrs, err := dao.MarshalKey(key)
 	if err != nil {
 		return nil, err
 	}

@@ -68,7 +68,7 @@ func TestKeySchemaWithSubStruct(t *testing.T) {
 }
 
 type TestStructWithSubStructIndirect struct {
-	A string `dynamoKey:"range"`
+	A string                    `dynamoKey:"range"`
 	B *TestSubStructWithHashKey `dynamodbav:"b"`
 }
 

@@ -24,7 +24,11 @@ func NewV5(ns UUID, name string) UUID {
 }
 
 func NewV4() UUID {
-	return UUID{base.NewV4()}
+	baseUUID, err := base.NewV4()
+	if err != nil {
+		panic("satori NewV4 returned error: " + err.Error())
+	}
+	return UUID{baseUUID}
 }
 
 func NewV3(ns UUID, name string) UUID {
@@ -32,11 +36,19 @@ func NewV3(ns UUID, name string) UUID {
 }
 
 func NewV2(domain byte) UUID {
-	return UUID{base.NewV2(domain)}
+	baseUUID, err := base.NewV2(domain)
+	if err != nil {
+		panic("satori NewV2 returned error: " + err.Error())
+	}
+	return UUID{baseUUID}
 }
 
 func NewV1() UUID {
-	return UUID{base.NewV1()}
+	baseUUID, err := base.NewV1()
+	if err != nil {
+		panic("satori NewV1 returned error: " + err.Error())
+	}
+	return UUID{baseUUID}
 }
 
 func (uuid *UUID) MarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {

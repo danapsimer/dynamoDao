@@ -217,7 +217,8 @@ func TestDynamoDBDao_PutItem(t *testing.T) {
 	assert.Equal(t, "4045551212", savedStruct1.PhoneNumber)
 
 	retrieved, err := dao.GetItem(&Struct1{
-		Id: savedStruct1.Id,
+		Id:   savedStruct1.Id,
+		Name: savedStruct1.Name,
 	})
 	require.NoError(t, err)
 	require.NotNil(t, retrieved)
@@ -280,7 +281,10 @@ func TestDynamoDBDao_DeleteItem(t *testing.T) {
 	savedStruct1, ok := saved.(*Struct1)
 	require.True(t, ok)
 
-	key := Struct1{Id: savedStruct1.Id}
+	key := Struct1{
+		Id:   savedStruct1.Id,
+		Name: savedStruct1.Name,
+	}
 
 	deleted, err := dao.DeleteItem(&key)
 	require.NoError(t, err)

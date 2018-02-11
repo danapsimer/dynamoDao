@@ -45,6 +45,7 @@ func globalIndexesForType(structType reflect.Type) ([]*dynamodb.GlobalSecondaryI
 }
 
 func extractGlobalSecondaryIndexes(baseName string, structType reflect.Type, GSIs map[string]*dynamodb.GlobalSecondaryIndex) error {
+	allowKey := baseName == ""
 	for f := 0; f < structType.NumField(); f++ {
 		field := structType.Field(f)
 		fieldName := getFieldName(baseName, field)
@@ -65,11 +66,17 @@ func extractGlobalSecondaryIndexes(baseName string, structType reflect.Type, GSI
 				}
 				switch role {
 				case "hash":
+					if !allowKey {
+						return errors.New("hash not allowed on non-top-level fields.")
+					}
 					err := parseGSIHashKey(fieldName, nameAndRole, gsi)
 					if err != nil {
 						return err
 					}
 				case "range":
+					if !allowKey {
+						return errors.New("range not allowed on non-top-level fields.")
+					}
 					err := parseGSIRangeKey(fieldName, gsi)
 					if err != nil {
 						return err
