@@ -32,7 +32,12 @@ type DynamoDBDao struct {
 	tableDescription *dynamodb.CreateTableInput
 }
 
-func NewDynamoDBDao(sess *session.Session, tableName string, readCapacity, writeCapacity int64, enableStreaming bool, streamViewType string, structType reflect.Type) (*DynamoDBDao, error) {
+func NewDynamoDBDao(sess *session.Session,
+	tableName string,
+	readCapacity, writeCapacity int64,
+	enableStreaming bool,
+	streamViewType string,
+	structType reflect.Type) (*DynamoDBDao, error) {
 	dao := &DynamoDBDao{
 		Client:          dynamodb.New(sess),
 		TableName:       tableName,

@@ -39,27 +39,7 @@ func resetTestStructTable(t *testing.T) *TestStructDao {
 }
 
 func TestDynamoDBDao_PagedQuery(t *testing.T) {
-	dao := resetTestStructTable(t)
-	_, err := dao.dao.PutItem(TestStruct{
-		A: "1", B: 32, C: 3.14159, D: true, E: []byte{0x01, 0x02, 0x03},
-		F: TestSubStruct{G: "foo", H: 2.1356, I: 55, K: 78, L: 1},
-		M: "ignored", N: "bar"})
-	require.NoError(t, err)
-	_, err = dao.dao.PutItem(TestStruct{
-		A: "2", B: 23, C: 3.14159, D: true, E: []byte{0x01, 0x02, 0x03},
-		F: TestSubStruct{G: "foo", H: 2.1356, I: 55, K: 78, L: 123456789012345},
-		M: "ignored", N: "barbell"})
-	require.NoError(t, err)
-	_, err = dao.dao.PutItem(TestStruct{
-		A: "3", B: -55, C: 3.14159, D: true, E: []byte{0x01, 0x02, 0x03},
-		F: TestSubStruct{G: "foo", H: 2.1356, I: 55, K: 78, L: 123456789012345},
-		M: "ignored", N: "snafubar"})
-	require.NoError(t, err)
-	_, err = dao.dao.PutItem(TestStruct{
-		A: "4", B: -123456, C: 3.14159, D: true, E: []byte{0x01, 0x02, 0x03},
-		F: TestSubStruct{G: "fu", H: 2.1356, I: 55, K: 78, L: 123456789012345},
-		M: "ignored", N: "bar"})
-	require.NoError(t, err)
+	dao := resetAndFillTable(t)
 
 	searchPage, err := dao.SearchByFoo("3", -56)
 	require.NoError(t, err)

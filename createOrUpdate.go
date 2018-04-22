@@ -23,7 +23,7 @@ func (dao *DynamoDBDao) CreateOrUpdateTable(t interface{}) chan error {
 // structs or arrays).
 //
 // The CreateTableInput structure used for creating a table in DyanamoDB has 4 major parts: Attributes, KeySchema,
-// GlobalSecondaryIndexes, LocalSecondarIndexes, and ProvisionedThroughput.
+// GlobalSecondaryIndexes, LocalSecondaryIndexes, and ProvisionedThroughput.
 //
 // Attributes:
 // ===========
@@ -35,7 +35,7 @@ func (dao *DynamoDBDao) CreateOrUpdateTable(t interface{}) chan error {
 //
 // KeySchema:
 // ==========
-// The create table function only allows 2 schema fields: one hash and one range. To mark you hash and range attributes
+// The create table function only allows 2 schema fields: one hash and one range. To mark your hash and range attributes
 // add a 'dynamoKey' tag to your struct's attribute:
 //
 // FieldA string `dynamoKey:"hash"`  // Marks this as the hash key, there can be only one
@@ -81,7 +81,7 @@ func (dao *DynamoDBDao) CreateOrUpdateTable(t interface{}) chan error {
 //
 // LocalSecondaryIndexes:
 // ======================
-// These are defined by the 'dynamoGSI' tag.  The format for the tag is as follows:
+// These are defined by the 'dynamoLSI' tag.  The format for the tag is as follows:
 //
 // lsi-tag:=lsi-spec[;gsi-tag]
 // lsi-spec:=name,role[,projection-type]

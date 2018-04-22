@@ -38,7 +38,9 @@ const (
  * The input parameter names will be mapped the same way as described in the above referenced documentation with the
  * value set to the values defined in the queryValues parameter.
  */
-func (dao *DynamoDBDao) PagedQuery(indexName, keyExpression, filterExpression string, queryValues map[string]interface{}, lastItemToken *string, pageOffset, pageSize int64) (*SearchPage, error) {
+func (dao *DynamoDBDao) PagedQuery(indexName, keyExpression, filterExpression string,
+	queryValues map[string]interface{}, lastItemToken *string, pageOffset, pageSize int64) (*SearchPage, error) {
+
 	attrNames := make(map[string]*string)
 	keyExpression = extractAttrNameAliasesFromExpression(keyExpression, attrNames)
 	filterExpression = extractAttrNameAliasesFromExpression(filterExpression, attrNames)
@@ -110,7 +112,7 @@ func (dao *DynamoDBDao) PagedQuery(indexName, keyExpression, filterExpression st
 	if logQuery {
 		log.Printf("query = %+v", query)
 	}
-	dao.Client.QueryPages(query, func(result *dynamodb.QueryOutput, lastPage bool) bool {
+	err = dao.Client.QueryPages(query, func(result *dynamodb.QueryOutput, lastPage bool) bool {
 		for _, item := range result.Items {
 			if itemIndex >= firstItemToProcess {
 				ptrT, err := dao.UnmarshalAttributes(item)
