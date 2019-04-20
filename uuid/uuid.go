@@ -24,10 +24,7 @@ func NewV5(ns UUID, name string) UUID {
 }
 
 func NewV4() UUID {
-	baseUUID, err := base.NewV4()
-	if err != nil {
-		panic("satori NewV4 returned error: " + err.Error())
-	}
+	baseUUID := base.NewV4()
 	return UUID{baseUUID}
 }
 
@@ -36,18 +33,12 @@ func NewV3(ns UUID, name string) UUID {
 }
 
 func NewV2(domain byte) UUID {
-	baseUUID, err := base.NewV2(domain)
-	if err != nil {
-		panic("satori NewV2 returned error: " + err.Error())
-	}
+	baseUUID := base.NewV2(domain)
 	return UUID{baseUUID}
 }
 
 func NewV1() UUID {
-	baseUUID, err := base.NewV1()
-	if err != nil {
-		panic("satori NewV1 returned error: " + err.Error())
-	}
+	baseUUID := base.NewV1()
 	return UUID{baseUUID}
 }
 
