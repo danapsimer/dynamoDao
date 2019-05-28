@@ -3,7 +3,7 @@ module github.com/danapsimer/dynamoDao
 go 1.12
 
 require (
-	github.com/aws/aws-sdk-go v1.19.15
+	github.com/aws/aws-sdk-go v1.19.38
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/satori/go.uuid v1.2.0
 	github.com/stretchr/testify v1.3.0
