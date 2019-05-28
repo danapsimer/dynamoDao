@@ -1,4 +1,4 @@
-module code.bluesoftdev.com/dynamoDao
+module github.com/danapsimer/dynamoDao
 
 go 1.12
 

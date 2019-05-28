@@ -53,7 +53,7 @@ func (dao *DynamoDBDao) CreateOrUpdateTable(t interface{}) chan error {
 //
 // gsi-tag:=gsi-spec[;gsi-tag]
 // gsi-spec:=name,role[,[read-cap,write-cap][,projection-type]]
-// name:=[0-9A-Za-z_.-]+
+// name:=[0-9A-Za-z_-.]+
 // role:=hash|range|project
 // read-cap:=''|integer
 // write-cap:=''|integer

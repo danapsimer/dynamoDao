@@ -1,7 +1,7 @@
 package dynamoDao
 
 import (
-	"code.bluesoftdev.com/dynamoDao/uuid"
+	"github.com/danapsimer/dynamoDao/uuid"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"reflect"
