@@ -3,7 +3,7 @@ package uuid
 import (
 	"errors"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
-	base "github.com/satori/go.uuid"
+	base "github.com/google/uuid"
 )
 
 type UUID struct {
@@ -15,30 +15,21 @@ var (
 	UnrecognizedUUID = errors.New("attribute value is not a UUID")
 )
 
-func NewFromBytes(bytes [16]byte) UUID {
-	return UUID{base.UUID(bytes)}
-}
-
-func NewV5(ns UUID, name string) UUID {
-	return UUID{base.NewV5(ns.UUID, name)}
+func NewFromBytes(bytes []byte) (UUID, error) {
+	baseUUID, err := base.FromBytes(bytes)
+	if err != nil {
+		return Nil, err
+	}
+	return UUID{baseUUID}, nil
 }
 
 func NewV4() UUID {
-	baseUUID := base.NewV4()
-	return UUID{baseUUID}
-}
-
-func NewV3(ns UUID, name string) UUID {
-	return UUID{base.NewV3(ns.UUID, name)}
-}
-
-func NewV2(domain byte) UUID {
-	baseUUID := base.NewV2(domain)
+	baseUUID := base.New()
 	return UUID{baseUUID}
 }
 
 func NewV1() UUID {
-	baseUUID := base.NewV1()
+	baseUUID := base.Must(base.NewUUID())
 	return UUID{baseUUID}
 }
 
@@ -46,7 +37,11 @@ func (uuid *UUID) MarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) err
 	if *uuid == Nil {
 		av.SetNULL(true)
 	} else {
-		av.SetB(uuid.Bytes())
+		bytes, err := uuid.MarshalBinary()
+		if err != nil {
+			return err
+		}
+		av.SetB(bytes)
 	}
 	return nil
 }
