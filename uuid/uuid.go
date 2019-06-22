@@ -23,6 +23,14 @@ func NewFromBytes(bytes []byte) (UUID, error) {
 	return UUID{baseUUID}, nil
 }
 
+func Parse(uuidStr string) (UUID, error) {
+	baseUUID, err := base.Parse(uuidStr)
+	if err != nil {
+		return Nil, err
+	}
+	return UUID{baseUUID}, nil
+}
+
 func NewV4() UUID {
 	baseUUID := base.New()
 	return UUID{baseUUID}

@@ -17,6 +17,13 @@ func TestNewFromBytes(t *testing.T) {
 	}
 }
 
+func TestParse(t *testing.T) {
+	parsed, err := uuid.Parse("54316571-d4dc-4655-a822-b2b7db774e36")
+	if assert.NoError(t, err) {
+		assert.Equal(t, testV4, parsed.UUID[:]);
+	}
+}
+
 func TestNewV4(t *testing.T) {
 	v4 := uuid.NewV4()
 	if assert.NotNil(t, v4) {
