@@ -1,6 +1,7 @@
 package uuid_test
 
 import (
+	"encoding/base64"
 	"github.com/danapsimer/dynamoDao/uuid"
 	"github.com/stretchr/testify/assert"
 	"testing"
@@ -36,5 +37,12 @@ func TestNewV1(t *testing.T) {
 	v1 := uuid.NewV1()
 	if assert.NotNil(t, v1) {
 		t.Logf("v1 = %v", v1)
+	}
+}
+
+func TestBase64Encode(t *testing.T) {
+	parsed, err := uuid.Parse("342b613f-d4d5-4a22-91bc-f6530e907cdf")
+	if assert.NoError(t,err) {
+		t.Logf("base64 = %s",base64.StdEncoding.EncodeToString(parsed.UUID[:]))
 	}
 }
